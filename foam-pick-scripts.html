@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>泡沫选片 · 今日抽片</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #0a0a14;
+    color: #fff;
+    line-height: 1.6;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(120, 80, 255, 0.18) 0%, transparent 45%),
+      radial-gradient(ellipse at 80% 100%, rgba(255, 80, 160, 0.14) 0%, transparent 45%),
+      #0a0a14;
+  }
+  .container { max-width: 480px; margin: 0 auto; padding: 0 16px 80px; }
+
+  /* ---------- Header ---------- */
+  .header { padding: 36px 0 20px; text-align: center; }
+  .logo-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    padding: 6px 16px; border-radius: 999px; font-size: 12px; color: #c9b8ff;
+    margin-bottom: 14px; backdrop-filter: blur(10px);
+  }
+  .logo-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; box-shadow: 0 0 8px #a78bfa; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .header h1 {
+    font-size: 30px; font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, #c9b8ff 55%, #f472b6 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 2px; margin-bottom: 6px;
+  }
+  .header .subtitle { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 3px; }
+
+  /* ---------- Stats bar ---------- */
+  .stats-bar {
+    display: flex; gap: 10px; margin: 18px 0;
+  }
+  .stat-box {
+    flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px; padding: 12px 8px; text-align: center;
+  }
+  .stat-box .num { font-size: 20px; font-weight: 800; color: #fff; }
+  .stat-box .lbl { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .stat-box.ssr .num { color: #fbbf24; }
+  .stat-box.sr .num { color: #c084fc; }
+  .stat-box.r .num { color: #60a5fa; }
+
+  /* ---------- Draw machine ---------- */
+  .draw-machine {
+    background: linear-gradient(160deg, rgba(120,80,255,0.12), rgba(255,80,160,0.06));
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 24px;
+    padding: 28px 20px; margin-bottom: 24px; text-align: center; position: relative; overflow: hidden;
+  }
+  .draw-machine::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(251,191,36,0.12), transparent 60%);
+    pointer-events: none;
+  }
+  .screen {
+    width: 100%; height: 150px; border-radius: 16px; margin: 0 auto 22px;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;
+  }
+  .screen .slot {
+    font-size: 22px; font-weight: 800; text-align: center; padding: 0 16px;
+    background: linear-gradient(135deg, #fff, #c9b8ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    transition: transform 0.05s linear;
+  }
+  .screen .hint { font-size: 14px; color: rgba(255,255,255,0.4); }
+  .screen .sparkle {
+    position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fbbf24;
+    opacity: 0; pointer-events: none;
+  }
+
+  .draw-btns { display: flex; gap: 12px; justify-content: center; position: relative; z-index: 1; }
+  .draw-btn {
+    flex: 1; max-width: 160px; padding: 16px 0; border: none; border-radius: 16px;
+    font-size: 16px; font-weight: 700; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    color: #fff; position: relative; overflow: hidden;
+  }
+  .draw-btn:active { transform: scale(0.96); }
+  .draw-btn.single {
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    box-shadow: 0 6px 20px rgba(124,58,237,0.4);
+  }
+  .draw-btn.ten {
+    background: linear-gradient(135deg, #db2777, #f472b6);
+    box-shadow: 0 6px 20px rgba(219,39,119,0.4);
+  }
+  .draw-btn .sub { display: block; font-size: 11px; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+  .draw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---------- Section titles ---------- */
+  .section-title {
+    display: flex; align-items: center; gap: 10px; margin: 26px 0 14px;
+  }
+  .section-title .line { width: 3px; height: 16px; border-radius: 2px; background: linear-gradient(180deg, #a78bfa, #f472b6); }
+  .section-title h2 { font-size: 16px; font-weight: 700; }
+  .section-title .count { margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.4); }
+
+  /* ---------- Movie pool grid ---------- */
+  .pool-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .pool-card {
+    aspect-ratio: 2/3; border-radius: 12px; position: relative; overflow: hidden;
+    cursor: pointer; transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.08);
+  }
+  .pool-card:active { transform: scale(0.95); }
+  .pool-card .poster {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 8px; text-align: center; font-size: 13px; font-weight: 700; color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6); line-height: 1.3;
+  }
+  .pool-card.locked .poster { filter: grayscale(1) brightness(0.3); }
+  .pool-card .rarity-tag {
+    position: absolute; top: 6px; left: 6px; font-size: 9px; font-weight: 800;
+    padding: 2px 6px; border-radius: 4px; color: #fff;
+  }
+  .pool-card .rating-tag {
+    position: absolute; bottom: 6px; right: 6px; font-size: 10px; font-weight: 700;
+    background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; color: #fbbf24;
+  }
+  .pool-card.locked .rating-tag { display: none; }
+  .rarity-ssr { background: linear-gradient(135deg, #f59e0b, #fbbf24); box-shadow: 0 0 8px rgba(251,191,36,0.6); }
+  .rarity-sr { background: linear-gradient(135deg, #9333ea, #c084fc); }
+  .rarity-r { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+  .rarity-n { background: linear-gradient(135deg, #16a34a, #4ade80); }
+
+  .border-ssr { box-shadow: 0 0 0 2px #fbbf24, 0 0 16px rgba(251,191,36,0.4); }
+  .border-sr { box-shadow: 0 0 0 2px #c084fc; }
+  .border-r { box-shadow: 0 0 0 2px #60a5fa; }
+
+  /* ---------- History ---------- */
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 10px 12px; cursor: pointer;
+  }
+  .history-item:active { background: rgba(255,255,255,0.06); }
+  .history-thumb {
+    width: 40px; height: 56px; border-radius: 6px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; text-align: center; padding: 4px; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6); line-height: 1.2;
+  }
+  .history-info { flex: 1; min-width: 0; }
+  .history-info .name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-info .meta { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .history-rating { font-size: 16px; font-weight: 800; color: #fbbf24; }
+  .empty-tip { text-align: center; color: rgba(255,255,255,0.3); font-size: 13px; padding: 24px 0; }
+
+  /* ---------- Result Modal ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+    z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.show { display: flex; animation: fadeIn 0.3s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(160deg, #1a1530, #0d0d1a); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 24px; max-width: 360px; width: 100%; padding: 24px; text-align: center;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal .rarity-badge {
+    display: inline-block; padding: 4px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    margin-bottom: 16px; color: #fff;
+  }
+  .modal-poster {
+    width: 140px; height: 200px; margin: 0 auto 16px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center; padding: 12px;
+    font-size: 18px; font-weight: 800; color: #fff; text-align: center; line-height: 1.3;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7); position: relative;
+  }
+  .modal-poster.ssr-glow { box-shadow: 0 0 30px rgba(251,191,36,0.6), 0 0 60px rgba(251,191,36,0.3); animation: glow 1.5s ease-in-out infinite alternate; }
+  @keyframes glow { from { box-shadow: 0 0 20px rgba(251,191,36,0.5); } to { box-shadow: 0 0 40px rgba(251,191,36,0.8); } }
+  .modal-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .modal-meta { font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 14px; }
+  .modal-review {
+    background: rgba(255,255,255,0.05); border-left: 3px solid #a78bfa; border-radius: 0 10px 10px 0;
+    padding: 10px 14px; font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.7; text-align: left;
+    font-style: italic; margin-bottom: 18px;
+  }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-btn {
+    flex: 1; padding: 12px; border: none; border-radius: 12px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: transform 0.15s; color: #fff;
+  }
+  .modal-btn:active { transform: scale(0.96); }
+  .modal-btn.again { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+  .modal-btn.close { background: rgba(255,255,255,0.1); }
+
+  /* Ten result grid */
+  .ten-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 18px;
+  }
+  .ten-card {
+    aspect-ratio: 2/3; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    padding: 4px; font-size: 9px; font-weight: 700; text-align: center; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6); line-height: 1.2; cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .ten-card:active { transform: scale(0.92); }
+
+  /* ---------- Reset btn ---------- */
+  .reset-row { text-align: center; margin-top: 24px; }
+  .reset-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5); padding: 8px 20px; border-radius: 999px; font-size: 12px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .reset-btn:active { background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+
+  .footer { text-align: center; padding: 30px 0 10px; font-size: 11px; color: rgba(255,255,255,0.25); }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.85); color: #fff; padding: 10px 20px; border-radius: 999px;
+    font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-badge"><span class="dot"></span>FOAM PICK · 今日抽片</div>
+    <h1>泡沫选片</h1>
+    <div class="subtitle">不知道看什么？抽一张就对了</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-box"><div class="num" id="stat-total">0</div><div class="lbl">累计抽片</div></div>
+    <div class="stat-box ssr"><div class="num" id="stat-ssr">0</div><div class="lbl">SSR 神作</div></div>
+    <div class="stat-box sr"><div class="num" id="stat-sr">0</div><div class="lbl">SR 佳作</div></div>
+    <div class="stat-box r"><div class="num" id="stat-unique">0</div><div class="lbl">已解锁</div></div>
+  </div>
+
+  <!-- Draw Machine -->
+  <div class="draw-machine">
+    <div class="screen" id="screen">
+      <div class="hint" id="screen-hint">点击下方按钮，抽取今日片单</div>
+      <div class="slot" id="screen-slot" style="display:none;"></div>
+    </div>
+    <div class="draw-btns">
+      <button class="draw-btn single" id="btn-single" onclick="draw(1)">单抽<span class="sub">随机 1 部</span></button>
+      <button class="draw-btn ten" id="btn-ten" onclick="draw(10)">十连<span class="sub">一次抽 10 部</span></button>
+    </div>
+  </div>
+
+  <!-- Movie Pool -->
+  <div class="section-title">
+    <div class="line"></div><h2>片库图鉴</h2>
+    <span class="count" id="pool-count">0 / 0</span>
+  </div>
+  <div class="pool-grid" id="pool-grid"></div>
+
+  <!-- History -->
+  <div class="section-title">
+    <div class="line"></div><h2>抽片记录</h2>
+  </div>
+  <div class="history-list" id="history-list">
+    <div class="empty-tip">还没有抽片记录，快来抽第一张吧～</div>
+  </div>
+
+  <div class="reset-row">
+    <button class="reset-btn" onclick="resetAll()">重置所有进度</button>
+  </div>
+
+  <div class="footer">泡沫选片 FOAM PICK · 让选择变得简单</div>
+</div>
+
+<!-- Result Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== Movie Data Pool ====================
+const MOVIES = [
+  { id:1,  title:"肖申克的救赎",   year:1994, genre:"剧情/犯罪", rating:9.7, review:"希望是美好的，也许是人间至善，而美好的事物永不消逝。", g1:"#1e3a5f", g2:"#4a90b8" },
+  { id:2,  title:"霸王别姬",       year:1993, genre:"剧情/爱情", rating:9.6, review:"说好了一辈子，少一年、一个月、一天、一个时辰，都不算一辈子。", g1:"#8b1a1a", g2:"#d4574a" },
+  { id:3,  title:"阿甘正传",       year:1994, genre:"剧情",     rating:9.5, review:"生活就像一盒巧克力，你永远不知道下一颗是什么味道。", g1:"#2d5016", g2:"#6b9e3f" },
+  { id:4,  title:"泰坦尼克号",     year:1997, genre:"爱情/灾难", rating:9.4, review:"你跳，我也跳。赢到船票，是我一生最幸运的事。", g1:"#0c2461", g2:"#1e6091" },
+  { id:5,  title:"千与千寻",       year:2001, genre:"动画/奇幻", rating:9.4, review:"曾经发生过的事情不会忘记，只是想不起来而已。", g1:"#1a472a", g2:"#52b788" },
+  { id:6,  title:"星际穿越",       year:2014, genre:"科幻/冒险", rating:9.4, review:"爱是唯一可以超越时间与空间的事物。", g1:"#1a1a2e", g2:"#4a4e69" },
+  { id:7,  title:"盗梦空间",       year:2010, genre:"科幻/悬疑", rating:9.3, review:"我们做梦的时候，梦境是真实的，只有醒来才意识到不对劲。", g1:"#2c3e50", g2:"#5d6d7e" },
+  { id:8,  title:"辛德勒的名单",   year:1993, genre:"剧情/历史", rating:9.5, review:"救一个人，就是拯救整个世界。", g1:"#2c2c2c", g2:"#8b0000" },
+  { id:9,  title:"楚门的世界",     year:1998, genre:"剧情/科幻", rating:9.4, review:"如果再也不能见到你，祝你早安、午安、晚安。", g1:"#154360", g2:"#5dade2" },
+  { id:10, title:"海上钢琴师",     year:1998, genre:"剧情/音乐", rating:9.3, review:"城市那么大，看不到尽头，我停下来不是因为所见，是因为所不见。", g1:"#1b2631", g2:"#2e86c1" },
+  { id:11, title:"三傻大闹宝莱坞", year:2009, genre:"喜剧/剧情", rating:9.2, review:"All is well. 追求卓越，成功就会出其不意地找上门。", g1:"#b9770e", g2:"#f4d03f" },
+  { id:12, title:"机器人总动员",   year:2008, genre:"动画/科幻", rating:9.3, review:"我不要只是生存，我要活得有意义。", g1:"#784212", g2:"#d4ac0d" },
+  { id:13, title:"放牛班的春天",   year:2004, genre:"剧情/音乐", rating:9.3, review:"每一颗心都需要爱，需要温柔，需要宽容，需要理解。", g1:"#1e8449", g2:"#52be80" },
+  { id:14, title:"无间道",         year:2002, genre:"剧情/犯罪", rating:9.3, review:"我想做个好人。对不起，我是警察。", g1:"#1c2833", g2:"#566573" },
+  { id:15, title:"寻梦环游记",     year:2017, genre:"动画/奇幻", rating:9.1, review:"真正的死亡是世界上再没有一个人记得你。", g1:"#922b21", g2:"#f39c12" },
+  { id:16, title:"当幸福来敲门",   year:2006, genre:"剧情/传记", rating:9.2, review:"别让别人告诉你你成不了才，即使是我也不行。", g1:"#1a5276", g2:"#2980b9" },
+  { id:17, title:"让子弹飞",       year:2010, genre:"剧情/喜剧", rating:9.0, review:"站着，还把钱挣了。", g1:"#4a1c1c", g2:"#922b21" },
+  { id:18, title:"大话西游之大圣娶亲", year:1995, genre:"喜剧/爱情", rating:9.2, review:"曾经有一份真诚的爱情放在我面前，我没有珍惜。", g1:"#6e2c00", g2:"#ba5510" },
+  { id:19, title:"龙猫",           year:1988, genre:"动画/奇幻", rating:9.2, review:"什么时候我们开始无法像孩子一样肆意地大呼小叫了？", g1:"#117a65", g2:"#48c9b0" },
+  { id:20, title:"教父",           year:1972, genre:"剧情/犯罪", rating:9.3, review:"不要憎恨你的敌人，那会影响你的判断力。", g1:"#1c1c1c", g2:"#4a2c0a" },
+  { id:21, title:"美丽人生",       year:1997, genre:"剧情/喜剧", rating:9.6, review:"为了记住你的笑容，我拼命按下心中的快门。", g1:"#6e2c00", g2:"#d4ac0d" },
+  { id:22, title:"搏击俱乐部",     year:1999, genre:"剧情/悬疑", rating:9.0, review:"你得先放弃一切，你必须毫无恐惧，才能真正自由。", g1:"#421515", g2:"#6e2c2c" },
+  { id:23, title:"黑客帝国",       year:1999, genre:"科幻/动作", rating:9.1, review:"欢迎来到真实的荒漠。", g1:"#0d2818", g2:"#1e7e34" },
+  { id:24, title:"低俗小说",       year:1994, genre:"剧情/犯罪", rating:8.8, review:"自尊心只会伤感情，我建议你戒掉它。", g1:"#3d1f1f", g2:"#8b4513" },
+  { id:25, title:"哈尔的移动城堡", year:2004, genre:"动画/奇幻", rating:9.1, review:"就是因为你不好，才要留在你身边，给你幸福。", g1:"#1b4f4b", g2:"#5b9bd5" },
+];
+
+// Rarity based on rating
+function getRarity(r) {
+  if (r >= 9.4) return { key:"ssr", label:"SSR 神作", color:"#fbbf24", cls:"rarity-ssr" };
+  if (r >= 9.0) return { key:"sr",  label:"SR 佳作",  color:"#c084fc", cls:"rarity-sr" };
+  if (r >= 8.5) return { key:"r",   label:"R 推荐",   color:"#60a5fa", cls:"rarity-r" };
+  return { key:"n", label:"N 日常", color:"#4ade80", cls:"rarity-n" };
+}
+
+// Weighted random draw (higher rating = slightly rarer)
+function drawMovie() {
+  // weights: SSR 8%, SR 30%, R 45%, N 17%
+  const r = Math.random();
+  let pool;
+  if (r < 0.08) pool = MOVIES.filter(m => getRarity(m.rating).key === "ssr");
+  else if (r < 0.38) pool = MOVIES.filter(m => getRarity(m.rating).key === "sr");
+  else if (r < 0.83) pool = MOVIES.filter(m => getRarity(m.rating).key === "r");
+  else pool = MOVIES.filter(m => getRarity(m.rating).key === "n");
+  if (pool.length === 0) pool = MOVIES;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ==================== State ====================
+let state = {
+  total: 0,
+  ssrCount: 0,
+  srCount: 0,
+  unlocked: {}, // id -> count
+  history: []   // [{movie, time}]
+};
+
+function loadState() {
+  try {
+    const s = localStorage.getItem("foampick_state");
+    if (s) state = { ...state, ...JSON.parse(s) };
+  } catch(e) {}
+}
+function saveState() {
+  try { localStorage.setItem("foampick_state", JSON.stringify(state)); } catch(e) {}
+}
+
+// ==================== Render ====================
+function updateStats() {
+  document.getElementById("stat-total").textContent = state.total;
+  document.getElementById("stat-ssr").textContent = state.ssrCount;
+  document.getElementById("stat-sr").textContent = state.srCount;
+  document.getElementById("stat-unique").textContent = Object.keys(state.unlocked).length;
+}
+
+function renderPool() {
+  const grid = document.getElementById("pool-grid");
+  grid.innerHTML = "";
+  MOVIES.forEach(m => {
+    const rarity = getRarity(m.rating);
+    const unlocked = state.unlocked[m.id];
+    const card = document.createElement("div");
+    card.className = "pool-card" + (unlocked ? "" : " locked") + (unlocked ? " border-" + rarity.key : "");
+    card.style.background = `linear-gradient(160deg, ${m.g1}, ${m.g2})`;
+    card.innerHTML = `
+      <span class="rarity-tag ${rarity.cls}">${rarity.key.toUpperCase()}</span>
+      <div class="poster">${m.title}</div>
+      ${unlocked ? `<span class="rating-tag">★ ${m.rating}</span>` : ""}
+    `;
+    card.onclick = () => {
+      if (unlocked) showMovieDetail(m);
+      else toast("未解锁，抽中后可查看详情");
+    };
+    grid.appendChild(card);
+  });
+  document.getElementById("pool-count").textContent = `${Object.keys(state.unlocked).length} / ${MOVIES.length}`;
+}
+
+function renderHistory() {
+  const list = document.getElementById("history-list");
+  if (state.history.length === 0) {
+    list.innerHTML = `<div class="empty-tip">还没有抽片记录，快来抽第一张吧～</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  state.history.slice(-20).reverse().forEach(h => {
+    const rarity = getRarity(h.movie.rating);
+    const item = document.createElement("div");
+    item.className = "history-item";
+    item.innerHTML = `
+      <div class="history-thumb" style="background:linear-gradient(160deg,${h.movie.g1},${h.movie.g2})">${h.movie.title}</div>
+      <div class="history-info">
+        <div class="name">${h.movie.title}</div>
+        <div class="meta">${h.movie.year} · ${h.movie.genre} · <span style="color:${rarity.color}">${rarity.label}</span></div>
+      </div>
+      <div class="history-rating">★${h.movie.rating}</div>
+    `;
+    item.onclick = () => showMovieDetail(h.movie);
+    list.appendChild(item);
+  });
+}
+
+// ==================== Draw Logic ====================
+let drawing = false;
+async function draw(count) {
+  if (drawing) return;
+  drawing = true;
+  document.getElementById("btn-single").disabled = true;
+  document.getElementById("btn-ten").disabled = true;
+
+  const screen = document.getElementById("screen");
+  const hint = document.getElementById("screen-hint");
+  const slot = document.getElementById("screen-slot");
+  hint.style.display = "none";
+  slot.style.display = "block";
+
+  // Slot animation
+  const titles = MOVIES.map(m => m.title);
+  const slotDuration = count === 1 ? 1500 : 800;
+  const start = Date.now();
+  await new Promise(resolve => {
+    function tick() {
+      if (Date.now() - start > slotDuration) { resolve(); return; }
+      slot.textContent = titles[Math.floor(Math.random() * titles.length)];
+      setTimeout(tick, 60);
+    }
+    tick();
+  });
+
+  // Draw results
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    const m = drawMovie();
+    results.push(m);
+    state.total++;
+    const r = getRarity(m.rating);
+    if (r.key === "ssr") state.ssrCount++;
+    if (r.key === "sr") state.srCount++;
+    state.unlocked[m.id] = (state.unlocked[m.id] || 0) + 1;
+    state.history.push({ movie: m, time: Date.now() });
+  }
+  saveState();
+  updateStats();
+  renderPool();
+  renderHistory();
+
+  slot.style.display = "none";
+  hint.style.display = "block";
+  hint.textContent = "抽取完成！";
+
+  // Show results
+  if (count === 1) {
+    showMovieDetail(results[0], true);
+  } else {
+    showTenResults(results);
+  }
+
+  drawing = false;
+  document.getElementById("btn-single").disabled = false;
+  document.getElementById("btn-ten").disabled = false;
+  setTimeout(() => { hint.textContent = "点击下方按钮，抽取今日片单"; }, 1500);
+}
+
+// ==================== Modals ====================
+function showMovieDetail(m, isResult) {
+  const rarity = getRarity(m.rating);
+  const isSSR = rarity.key === "ssr";
+  const modal = document.getElementById("modal");
+  const content = document.getElementById("modal-content");
+  content.innerHTML = `
+    <div class="rarity-badge ${rarity.cls}">${rarity.label}</div>
+    <div class="modal-poster ${isSSR ? "ssr-glow" : ""}" style="background:linear-gradient(160deg,${m.g1},${m.g2})">${m.title}</div>
+    <div class="modal-title">${m.title}</div>
+    <div class="modal-meta">${m.year} · ${m.genre} · <span style="color:#fbbf24;font-weight:700">★ ${m.rating}</span></div>
+    <div class="modal-review">"${m.review}"</div>
+    <div class="modal-actions">
+      ${isResult ? `<button class="modal-btn again" onclick="closeModal();draw(1)">再抽一张</button>` : ""}
+      <button class="modal-btn close" onclick="closeModal()">${isResult ? "收下" : "关闭"}</button>
+    </div>
+  `;
+  modal.classList.add("show");
+  if (isSSR) sparkleBurst();
+}
+
+function showTenResults(results) {
+  const modal = document.getElementById("modal");
+  const content = document.getElementById("modal-content");
+  const best = results.reduce((a, b) => a.rating > b.rating ? a : b);
+  const ssrCount = results.filter(r => getRarity(r.rating).key === "ssr").length;
+  const srCount = results.filter(r => getRarity(r.rating).key === "sr").length;
+  let summary = "";
+  if (ssrCount > 0) summary = `🎉 抽到 ${ssrCount} 部 SSR 神作！`;
+  else if (srCount >= 3) summary = `✨ 抽到 ${srCount} 部 SR 佳作！`;
+  else summary = "本次十连结果";
+
+  content.innerHTML = `
+    <div class="rarity-badge" style="background:linear-gradient(135deg,#7c3aed,#f472b6)">十连抽 · ${summary}</div>
+    <div class="ten-grid">
+      ${results.map(m => {
+        const r = getRarity(m.rating);
+        return `<div class="ten-card border-${r.key}" style="background:linear-gradient(160deg,${m.g1},${m.g2})" onclick='showMovieDetail(${JSON.stringify(m).replace(/'/g, "&apos;")}, false)'>${m.title}</div>`;
+      }).join("")}
+    </div>
+    <div class="modal-review">最高分：<span style="color:#fbbf24;font-weight:700">${best.title} ★ ${best.rating}</span></div>
+    <div class="modal-actions">
+      <button class="modal-btn again" onclick="closeModal();draw(10)">再来十连</button>
+      <button class="modal-btn close" onclick="closeModal()">收下</button>
+    </div>
+  `;
+  modal.classList.add("show");
+  if (ssrCount > 0) sparkleBurst();
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("show");
+}
+document.getElementById("modal").addEventListener("click", (e) => {
+  if (e.target.id === "modal") closeModal();
+});
+
+// ==================== Effects ====================
+function sparkleBurst() {
+  const screen = document.getElementById("screen");
+  for (let i = 0; i < 12; i++) {
+    const s = document.createElement("div");
+    s.className = "sparkle";
+    s.style.left = Math.random() * 100 + "%";
+    s.style.top = Math.random() * 100 + "%";
+    s.style.background = ["#fbbf24","#f472b6","#a78bfa","#fff"][i % 4];
+    screen.appendChild(s);
+    s.animate([
+      { opacity: 0, transform: "scale(0)" },
+      { opacity: 1, transform: "scale(1.5)" },
+      { opacity: 0, transform: "scale(0)" }
+    ], { duration: 800 + Math.random() * 600, delay: i * 80 });
+    setTimeout(() => s.remove(), 1500);
+  }
+}
+
+// ==================== Toast ====================
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+// ==================== Reset ====================
+function resetAll() {
+  if (!confirm("确定要重置所有抽片进度吗？此操作不可撤销。")) return;
+  state = { total: 0, ssrCount: 0, srCount: 0, unlocked: {}, history: [] };
+  saveState();
+  updateStats();
+  renderPool();
+  renderHistory();
+  toast("进度已重置");
+}
+
+// ==================== Init ====================
+loadState();
+updateStats();
+renderPool();
+renderHistory();
+</script>
+</body>
+</html>
